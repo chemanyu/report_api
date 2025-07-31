@@ -25,6 +25,7 @@ func GetCpsIncome(c *gin.Context) {
 	defer cancel()
 
 	params := top.Parameters{}
+	paramsReq := top.Parameters{}
 
 	listPath := []string{
 		"alibaba_idle_affiliate_cps_income_details_query_response",
@@ -32,9 +33,33 @@ func GetCpsIncome(c *gin.Context) {
 	}
 
 	// 从请求链接中获取参数
-	billState, _ := strconv.Atoi(c.Query("billState")) // 获取 billState 参数
-	pageSize, _ := strconv.Atoi(c.Query("pageSize"))   // 获取 pageSize 参数
-	incomes, err := client.QueryAllPagedIncomes(ctx, "alibaba.idle.affiliate.cps.income.details.query", params, listPath, billState, pageSize)
+	billState, _ := strconv.Atoi(c.Query("billState"))         // 获取 billState 参数
+	pageSize, _ := strconv.Atoi(c.Query("pageSize"))           // 获取 pageSize 参数
+	start_create_time_stamp := c.Query("startCreateTimeStamp") // 获取开始创建时间戳
+	end_create_time_stamp := c.Query("endCreateTimeStamp")     // 获取结束创建时间stamp
+	if start_create_time_stamp != "" {
+		startCreateTimeStamp, _ := strconv.ParseInt(start_create_time_stamp, 10, 64)
+		params["start_create_time_stamp"] = startCreateTimeStamp
+	}
+	if end_create_time_stamp != "" {
+		endCreateTimeStamp, _ := strconv.ParseInt(end_create_time_stamp, 10, 64)
+		params["end_create_time_stamp"] = endCreateTimeStamp
+	}
+	start_update_time := c.Query("startUpdateTime") // 获取开始更新时间戳
+	end_update_time := c.Query("endUpdateTime")     // 获取结束更新时间戳
+	if start_update_time != "" {
+		startUpdateTime, _ := strconv.ParseInt(start_update_time, 10, 64)
+		params["start_update_time"] = startUpdateTime
+	}
+	if end_update_time != "" {
+		endUpdateTime, _ := strconv.ParseInt(end_update_time, 10, 64)
+		params["end_update_time"] = endUpdateTime
+	}
+	create_month := c.Query("createMonth") // 获取创建月份
+	if create_month != "" {
+		params["create_month"] = create_month
+	}
+	incomes, err := client.QueryAllPagedIncomes(ctx, "alibaba.idle.affiliate.cps.income.details.query", paramsReq, params, listPath, billState, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Incomes"})
 		return

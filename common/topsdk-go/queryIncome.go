@@ -9,7 +9,12 @@ import (
 
 type IncomeDetailVo struct {
 	//BillState   int          `json:"bill_state"`
-	PageRequest *PageRequest `json:"page_request"`
+	PageRequest          *PageRequest `json:"page_request"`
+	StartCreateTimeStamp int64        `json:"start_create_time_stamp,omitempty"` // 开始创建时间戳
+	EndCreateTimeStamp   int64        `json:"end_create_time_stamp,omitempty"`   // 结束创建时间戳
+	CreateMonth          string       `json:"create_month,omitempty"`            // 创建月份
+	StartUpdateTime      int64        `json:"start_update_time,omitempty"`       // 开始更新时间戳
+	EndUpdateTime        int64        `json:"end_update_time,omitempty"`         // 结束更新时间戳
 }
 
 type IncomeDetailDTO struct {
@@ -46,6 +51,7 @@ type TradeOrderDTO2 struct {
 func (c *Client) QueryAllPagedIncomes(
 	ctx context.Context,
 	apiName string,
+	paramsReq Parameters,
 	baseParams Parameters,
 	listPath []string,
 	billState int,
@@ -64,17 +70,22 @@ func (c *Client) QueryAllPagedIncomes(
 
 	for {
 		// 添加分页参数
-		baseParams["income_detail_vo"] = IncomeDetailVo{
+		paramsReq["income_detail_vo"] = IncomeDetailVo{
 			//BillState: billState,
 			PageRequest: &PageRequest{
 				PageSize: pageSize,
 				PageNum:  pageNo,
 			},
+			StartCreateTimeStamp: baseParams["start_create_time_stamp"].(int64),
+			EndCreateTimeStamp:   baseParams["end_create_time_stamp"].(int64),
+			CreateMonth:          baseParams["create_month"].(string),
+			StartUpdateTime:      baseParams["start_update_time"].(int64),
+			EndUpdateTime:        baseParams["end_update_time"].(int64),
 		}
-		fmt.Println(baseParams)
+		fmt.Println(paramsReq)
 		// 每次都要复制一份参数防止引用问题
 		paramsCopy := Parameters{}
-		for k, v := range baseParams {
+		for k, v := range paramsReq {
 			paramsCopy[k] = v
 		}
 

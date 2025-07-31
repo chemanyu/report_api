@@ -78,10 +78,12 @@ func (c *Client) QueryAllPagedOrders(
 			break
 		}
 
-		list := result.Get("result")
+		list := result.Get("result").Get("trade_order_d_t_o")
+		fmt.Println("list:", list)
 		items, err := list.Array()
 		if err != nil {
 			fmt.Println("列表数据有误或者没有数据")
+			fmt.Println(err)
 			break // 说明没有更多了
 		}
 
