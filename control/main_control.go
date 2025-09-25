@@ -71,6 +71,7 @@ func MainControl() {
 		handlers.GetCpsOrderApiHandler,
 		handlers.GetCpsIncomeApiHandler,
 		handlers.GetCpsUserApiHandler,
+		handlers.GetJdReportApiHandler,
 	}
 
 	// 注册路由
