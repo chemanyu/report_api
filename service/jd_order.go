@@ -2,19 +2,59 @@ package service
 
 import (
 	"crypto/md5"
+	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"time"
 
-	"report_api/core"
-
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/xuri/excelize/v2"
 )
+
+// 创建专用的JD API HTTP客户端，超时时间较长
+func createJdHttpClient() *http.Client {
+	tr := &http.Transport{
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConns:      10,
+		IdleConnTimeout:   30 * time.Second,
+		DisableKeepAlives: false,
+	}
+	return &http.Client{
+		Transport: tr,
+		Timeout:   60 * time.Second, // JD API专用，60秒超时
+	}
+}
+
+// JD API专用HTTP GET请求，带重试机制
+func jdHttpGet(urlpath string, resp_exec func(content []byte) error) error {
+	client := createJdHttpClient()
+
+	req, err := http.NewRequest("GET", urlpath, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Request attempt failed, retrying in 2 seconds: %v\n", err)
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	content, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		fmt.Printf("Request attempt failed, retrying in 2 seconds: %v\n", err)
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	// 成功读取响应，执行回调
+	return resp_exec(content)
+}
 
 // JD API 配置
 const (
@@ -22,6 +62,15 @@ const (
 	JD_APP_SECRET   = "ee62ec0fab8143f38b8cfa5453cfa2a1" // 请替换为您的JD应用密钥
 	JD_ACCESS_TOKEN = ""                                 // 请替换为您的JD访问令牌
 )
+
+// 需要过滤的推广位ID列表
+var targetPositionIds = map[int64]bool{
+	3102289741: true,
+	3102289660: true,
+	3102289811: true,
+	3102289782: true,
+	3102289791: true,
+}
 
 // JD API 响应结构体
 type JdOrderResponse struct {
@@ -116,6 +165,11 @@ func GetJdOrder(ctx *gin.Context) {
 				return
 			}
 			allOrders = append(allOrders, orders...)
+
+			// 在不同类型的API调用之间添加延迟
+			if orderType < 3 {
+				time.Sleep(1 * time.Second)
+			}
 		}
 
 		// 移动到下一个小时
@@ -160,6 +214,11 @@ func fetchJdOrders(startTime, endTime, pageSize string, orderType int) ([]JdOrde
 		// 防止无限循环，最多获取100页
 		if pageIndex > 100 {
 			break
+		}
+
+		// 在分页请求之间添加短暂延迟
+		if hasMore {
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 
@@ -217,7 +276,7 @@ func fetchJdOrdersPage(startTime, endTime, pageSize string, pageIndex, orderType
 
 	// 发送HTTP请求
 	var response JdOrderResponse
-	err := core.HttpGet(requestUrl, func(content []byte) error {
+	err := jdHttpGet(requestUrl, func(content []byte) error {
 		fmt.Println("Response Content:", string(content))
 		return jsoniter.Unmarshal(content, &response)
 	})
@@ -244,9 +303,14 @@ func fetchJdOrdersPage(startTime, endTime, pageSize string, pageIndex, orderType
 			queryResult.Message)
 	}
 
-	// 转换数据格式
+	// 转换数据格式，只保留指定的PositionId
 	var orders []JdOrderData
 	for _, item := range queryResult.Data {
+		// 只处理目标推广位ID的订单
+		if !targetPositionIds[item.PositionId] {
+			continue
+		}
+
 		order := JdOrderData{
 			OrderId:    item.OrderId,
 			OrderTime:  item.OrderTime,

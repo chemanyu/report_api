@@ -41,7 +41,7 @@ func init() {
 			DisableKeepAlives: false,            // Enable keep-alive connections
 		}
 
-		ReqClient = &http.Client{Transport: tr, Timeout: 5 * time.Second}
+		ReqClient = &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	}
 }
 
