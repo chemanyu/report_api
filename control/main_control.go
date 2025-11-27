@@ -73,6 +73,7 @@ func MainControl() {
 		handlers.GetCpsUserApiHandler,
 		handlers.GetJdReportApiHandler,
 		handlers.CallbackApiHandler,
+		handlers.GdtallbackApiHandler,
 	}
 
 	// 注册路由
