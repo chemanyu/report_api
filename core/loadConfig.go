@@ -18,6 +18,8 @@ type Config struct {
 	SYSTEM_MODE       string
 	CALLBACK_BASE_URL string
 	PPROF             string
+	TAOBAO_APP_KEY    string
+	TAOBAO_APP_SECRET string
 }
 
 var config *Config
@@ -38,7 +40,8 @@ func LoadConfig(cfg string) *Config {
 		SYSTEM_MODE:       getViperStringValue("SYSTEM_MODE"),       //release debug
 		CALLBACK_BASE_URL: getViperStringValue("CALLBACK_BASE_URL"), //release debug
 		PPROF:             getViperStringValue("PPROF"),             //release debug
-
+		TAOBAO_APP_KEY:    getViperStringValue("TAOBAO_APP_KEY"),
+		TAOBAO_APP_SECRET: getViperStringValue("TAOBAO_APP_SECRET"),
 	}
 	return config
 }

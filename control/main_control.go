@@ -74,6 +74,7 @@ func MainControl() {
 		handlers.GetJdReportApiHandler,
 		handlers.CallbackApiHandler,
 		handlers.GdtallbackApiHandler,
+		handlers.GetTaobaoReportApiHandler,
 	}
 
 	// 注册路由
