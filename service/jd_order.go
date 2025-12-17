@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,19 +59,10 @@ func jdHttpGet(urlpath string, resp_exec func(content []byte) error) error {
 
 // JD API 配置
 const (
-	JD_APP_KEY      = "634228adb0f410c705aaefe2e194cf2b"
-	JD_APP_SECRET   = "ee62ec0fab8143f38b8cfa5453cfa2a1" // 请替换为您的JD应用密钥
+	JD_APP_KEY      = "133a2a74cab37ba1a2ee7cdbeb0cc479"
+	JD_APP_SECRET   = "c772a9a6f34a400097a21860ed0830f4" // 请替换为您的JD应用密钥
 	JD_ACCESS_TOKEN = ""                                 // 请替换为您的JD访问令牌
 )
-
-// 需要过滤的推广位ID列表
-var targetPositionIds = map[int64]bool{
-	3102289741: true,
-	3102289660: true,
-	3102289811: true,
-	3102289782: true,
-	3102289791: true,
-}
 
 // JD API 响应结构体
 type JdOrderResponse struct {
@@ -87,27 +79,45 @@ type JdQueryResult struct {
 	RequestId string `json:"requestId"`
 	HasMore   bool   `json:"hasMore"`
 	Data      []struct {
-		OrderId     int64   `json:"orderId"`
-		OrderTime   string  `json:"orderTime"`
-		FinishTime  string  `json:"finishTime"`
-		ModifyTime  string  `json:"modifyTime"`
-		PositionId  int64   `json:"positionId"`
-		Account     string  `json:"account"`
-		SkuName     string  `json:"skuName"`
-		ActualFee   float64 `json:"actualFee"`
-		EstimateFee float64 `json:"estimateFee"`
-		ValidCode   int     `json:"validCode"`
+		OrderId          int64   `json:"orderId"`
+		OrderTime        string  `json:"orderTime"`
+		FinishTime       string  `json:"finishTime"`
+		ModifyTime       string  `json:"modifyTime"`
+		UnionId          int64   `json:"unionId"`
+		SkuId            int64   `json:"skuId"`
+		SkuName          string  `json:"skuName"`
+		Price            float64 `json:"price"`
+		FinalRate        float64 `json:"finalRate"`
+		EstimateCosPrice float64 `json:"estimateCosPrice"`
+		EstimateFee      float64 `json:"estimateFee"`
+		ActualCosPrice   float64 `json:"actualCosPrice"`
+		ActualFee        float64 `json:"actualFee"`
+		ValidCode        int     `json:"validCode"`
+		PositionId       int64   `json:"positionId"`
+		Pid              string  `json:"pid"`
+		Account          string  `json:"account"`
 	} `json:"data"`
 }
 
 // JD订单数据结构用于Excel导出
 type JdOrderData struct {
-	OrderId    int64  `json:"orderId"`
-	OrderTime  string `json:"orderTime"`
-	FinishTime string `json:"finishTime"`
-	ModifyTime string `json:"modifyTime"`
-	PositionId int64  `json:"positionId"`
-	Account    string `json:"account"`
+	OrderId          int64   `json:"orderId"`
+	OrderTime        string  `json:"orderTime"`
+	FinishTime       string  `json:"finishTime"`
+	ModifyTime       string  `json:"modifyTime"`
+	UnionId          int64   `json:"unionId"`
+	SkuId            int64   `json:"skuId"`
+	SkuName          string  `json:"skuName"`
+	Price            float64 `json:"price"`
+	FinalRate        float64 `json:"finalRate"`
+	EstimateCosPrice float64 `json:"estimateCosPrice"`
+	EstimateFee      float64 `json:"estimateFee"`
+	ActualCosPrice   float64 `json:"actualCosPrice"`
+	ActualFee        float64 `json:"actualFee"`
+	ValidCode        int     `json:"validCode"`
+	PositionId       int64   `json:"positionId"`
+	Pid              string  `json:"pid"`
+	Account          string  `json:"account"`
 }
 
 func GetJdOrder(ctx *gin.Context) {
@@ -115,6 +125,7 @@ func GetJdOrder(ctx *gin.Context) {
 	startTimeStr := ctx.Query("startTime")
 	endTimeStr := ctx.Query("endTime")
 	pageSize := ctx.DefaultQuery("pageSize", "200")
+	orderType := ctx.Query("type") // 1-3
 
 	if startTimeStr == "" || endTimeStr == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "startTime and endTime are required"})
@@ -158,19 +169,21 @@ func GetJdOrder(ctx *gin.Context) {
 		currentEndStr := hourEndTime.Format("2006-01-02 15:04:05")
 
 		// 循环调用API，type分别为1、2、3
-		for orderType := 1; orderType <= 3; orderType++ {
-			orders, err := fetchJdOrders(currentStartStr, currentEndStr, pageSize, orderType)
-			if err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch orders for type %d, time %s-%s: %v", orderType, currentStartStr, currentEndStr, err)})
-				return
-			}
-			allOrders = append(allOrders, orders...)
-
-			// 在不同类型的API调用之间添加延迟
-			if orderType < 3 {
-				time.Sleep(1 * time.Second)
-			}
+		//for orderType := 1; orderType <= 3; orderType++ {
+		size, _ := strconv.Atoi(pageSize)
+		typeInt, _ := strconv.Atoi(orderType)
+		orders, err := fetchJdOrders(currentStartStr, currentEndStr, size, typeInt)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch orders for type %d, time %s-%s: %v", 1, currentStartStr, currentEndStr, err)})
+			return
 		}
+		allOrders = append(allOrders, orders...)
+
+		// 在不同类型的API调用之间添加延迟
+		// if orderType < 3 {
+		// 	time.Sleep(1 * time.Second)
+		// }
+		//}
 
 		// 移动到下一个小时
 		currentTime = hourEndTime
@@ -196,7 +209,7 @@ func GetJdOrder(ctx *gin.Context) {
 }
 
 // 获取JD订单数据
-func fetchJdOrders(startTime, endTime, pageSize string, orderType int) ([]JdOrderData, error) {
+func fetchJdOrders(startTime, endTime string, pageSize, orderType int) ([]JdOrderData, error) {
 	var allOrders []JdOrderData
 	pageIndex := 1
 	hasMore := true
@@ -226,7 +239,7 @@ func fetchJdOrders(startTime, endTime, pageSize string, orderType int) ([]JdOrde
 }
 
 // 获取单页JD订单数据
-func fetchJdOrdersPage(startTime, endTime, pageSize string, pageIndex, orderType int) ([]JdOrderData, bool, error) {
+func fetchJdOrdersPage(startTime, endTime string, pageSize, pageIndex, orderType int) ([]JdOrderData, bool, error) {
 	// JD API 参数
 	method := "jd.union.open.order.row.query"
 	version := "1.0"
@@ -277,7 +290,7 @@ func fetchJdOrdersPage(startTime, endTime, pageSize string, pageIndex, orderType
 	// 发送HTTP请求
 	var response JdOrderResponse
 	err := jdHttpGet(requestUrl, func(content []byte) error {
-		fmt.Println("Response Content:", string(content))
+		//fmt.Println("Response Content:", string(content))
 		return jsoniter.Unmarshal(content, &response)
 	})
 
@@ -306,18 +319,24 @@ func fetchJdOrdersPage(startTime, endTime, pageSize string, pageIndex, orderType
 	// 转换数据格式，只保留指定的PositionId
 	var orders []JdOrderData
 	for _, item := range queryResult.Data {
-		// 只处理目标推广位ID的订单
-		if !targetPositionIds[item.PositionId] {
-			continue
-		}
-
 		order := JdOrderData{
-			OrderId:    item.OrderId,
-			OrderTime:  item.OrderTime,
-			FinishTime: item.FinishTime,
-			ModifyTime: item.ModifyTime,
-			PositionId: item.PositionId,
-			Account:    item.Account,
+			OrderId:          item.OrderId,
+			OrderTime:        item.OrderTime,
+			FinishTime:       item.FinishTime,
+			ModifyTime:       item.ModifyTime,
+			UnionId:          item.UnionId,
+			SkuId:            item.SkuId,
+			SkuName:          item.SkuName,
+			Price:            item.Price,
+			FinalRate:        item.FinalRate,
+			EstimateCosPrice: item.EstimateCosPrice,
+			EstimateFee:      item.EstimateFee,
+			ActualCosPrice:   item.ActualCosPrice,
+			ActualFee:        item.ActualFee,
+			ValidCode:        item.ValidCode,
+			PositionId:       item.PositionId,
+			Pid:              item.Pid,
+			Account:          item.Account,
 		}
 		orders = append(orders, order)
 	}
@@ -358,7 +377,9 @@ func exportJdOrdersToExcel(orders []JdOrderData, filePath string) error {
 
 	// 写入表头
 	headers := []string{
-		"订单ID", "下单时间", "完成时间", "修改时间", "推广位ID", "账户信息",
+		"订单ID", "下单时间", "完成时间", "修改时间", "联盟ID", "商品ID", "商品名称",
+		"商品价格", "佣金比例", "预估计费金额", "预估佣金", "实际计费金额", "实际佣金",
+		"有效码", "推广位ID", "推广位", "账户信息",
 	}
 	for i, header := range headers {
 		cell := fmt.Sprintf("%s1", string(rune('A'+i)))
@@ -372,8 +393,19 @@ func exportJdOrdersToExcel(orders []JdOrderData, filePath string) error {
 		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), order.OrderTime)
 		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), order.FinishTime)
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), order.ModifyTime)
-		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), order.PositionId)
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), order.Account)
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), order.UnionId)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), order.SkuId)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), order.SkuName)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), order.Price)
+		f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), order.FinalRate)
+		f.SetCellValue(sheetName, fmt.Sprintf("J%d", row), order.EstimateCosPrice)
+		f.SetCellValue(sheetName, fmt.Sprintf("K%d", row), order.EstimateFee)
+		f.SetCellValue(sheetName, fmt.Sprintf("L%d", row), order.ActualCosPrice)
+		f.SetCellValue(sheetName, fmt.Sprintf("M%d", row), order.ActualFee)
+		f.SetCellValue(sheetName, fmt.Sprintf("N%d", row), order.ValidCode)
+		f.SetCellValue(sheetName, fmt.Sprintf("O%d", row), order.PositionId)
+		f.SetCellValue(sheetName, fmt.Sprintf("P%d", row), order.Pid)
+		f.SetCellValue(sheetName, fmt.Sprintf("Q%d", row), order.Account)
 	}
 
 	// 删除默认的Sheet1
