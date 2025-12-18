@@ -66,12 +66,17 @@ func MainControl() {
 	router.Use(gin.Recovery()) // Gin 的错误恢复中间件
 	router.Use(gin.Logger())   // Gin 的日志中间件
 
+	// 配置静态文件服务
+	router.Static("/static", "./static")
+	router.StaticFile("/", "./static/jd_sh_batch.html")
+
 	regHandlers := []handlers.Handler{
 		handlers.GetReportApiHandler,
 		handlers.GetCpsOrderApiHandler,
 		handlers.GetCpsIncomeApiHandler,
 		handlers.GetCpsUserApiHandler,
 		handlers.GetJdReportApiHandler,
+		handlers.GetJdShApiHandler,
 		handlers.CallbackApiHandler,
 		handlers.GdtallbackApiHandler,
 		handlers.GetTaobaoReportApiHandler,
