@@ -411,7 +411,7 @@
             formData.append('taskId', taskId);
             
             try {
-                const response = await fetch('/report/v1/jd_sh_batch', {
+                const response = await fetch('/jdsh/report/v1/jd_sh_batch', {
                     method: 'POST',
                     body: formData
                 });
