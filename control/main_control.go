@@ -6,7 +6,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	mysqldb "report_api/common/mysql"
 	"report_api/core"
 	handlers "report_api/handler"
 	"strings"
@@ -50,7 +49,7 @@ func init() {
 	// 加载配置文件
 	config = core.LoadConfig(*cfg)
 
-	mysqldb.InitMysql()
+	//mysqldb.InitMysql()
 
 }
 
