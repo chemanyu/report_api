@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -13,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fvbock/endless"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/pflag"
@@ -125,16 +123,8 @@ func MainControl() {
 
 // 开启服务
 func startServer(r *gin.Engine, address string) {
-	// 创建一个 HTTP 服务器实例
-	srv := endless.NewServer(":"+config.SERVER_PORT, r)
-
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			if err != http.ErrServerClosed {
-				log.Fatalf("Server failed to start: %v", err)
-			}
-			log.Println("Server stopped gracefully")
-		}
+		startServerImpl(r, config.SERVER_PORT)
 	}()
 
 	// graceful shutdown
@@ -142,10 +132,8 @@ func startServer(r *gin.Engine, address string) {
 	signal.Notify(quit, os.Interrupt)
 	<-quit
 
+	log.Println("Server is shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Println("ERROR", "[startServer]server_stop", "err", err)
-	}
+	_ = ctx // 在 Windows 版本中不需要使用 ctx，但保留以保持接口一致
 }
