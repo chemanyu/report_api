@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -83,6 +84,7 @@ type DataSourceRecord struct {
 	Cid           string
 	Oaid          string
 	ReqId         string
+	LogTime       string
 }
 
 // 打点数据结构
@@ -139,12 +141,13 @@ func processExcelAndCallback(dataSourcePath, clickDataPath string) (map[string]i
 			// 执行回调
 			success := sendCallback(record)
 			totalCallbacks++
+			callbackParam, _ := base64.StdEncoding.DecodeString(record.CallbackParam)
 			if success {
 				successCallbacks++
-				callbackResults = append(callbackResults, fmt.Sprintf("Success: %s", record.CallbackParam))
+				callbackResults = append(callbackResults, fmt.Sprintf("Success: %s", callbackParam))
 			} else {
 				failedCallbacks++
-				callbackResults = append(callbackResults, fmt.Sprintf("Failed: %s", record.CallbackParam))
+				callbackResults = append(callbackResults, fmt.Sprintf("Failed: %s", callbackParam))
 			}
 		}
 
@@ -198,6 +201,7 @@ func readDataSourceExcel(filePath string) (map[string][]DataSourceRecord, error)
 	cidCol := findColumnIndex(header, "cid")
 	oaidCol := findColumnIndex(header, "oaid")
 	reqIdCol := findColumnIndex(header, "req_id")
+	logTime := findColumnIndex(header, "log_time")
 
 	if adIdCol == -1 || callbackParamCol == -1 {
 		return nil, fmt.Errorf("required columns (ad_id, callback_param) not found in data source")
@@ -213,13 +217,13 @@ func readDataSourceExcel(filePath string) (map[string][]DataSourceRecord, error)
 		}
 
 		// 清理ad_id中的空白字符（包括制表符、换行符、空格等）
-		adId := strings.TrimSpace(row[adIdCol])
-		adId = strings.ReplaceAll(adId, "\t", "")
-		adId = strings.ReplaceAll(adId, "\n", "")
-		adId = strings.ReplaceAll(adId, "\r", "")
+		campaignId := strings.TrimSpace(row[campaignIdCol])
+		campaignId = strings.ReplaceAll(campaignId, "\t", "")
+		campaignId = strings.ReplaceAll(campaignId, "\n", "")
+		campaignId = strings.ReplaceAll(campaignId, "\r", "")
 
 		record := DataSourceRecord{
-			AdId:          adId,
+			CampaignId:    campaignId,
 			CallbackParam: row[callbackParamCol],
 		}
 
@@ -227,7 +231,7 @@ func readDataSourceExcel(filePath string) (map[string][]DataSourceRecord, error)
 			record.AdvertiserId = row[advertiserIdCol]
 		}
 		if campaignIdCol != -1 && len(row) > campaignIdCol {
-			record.CampaignId = row[campaignIdCol]
+			record.AdId = row[adIdCol]
 		}
 		if cidCol != -1 && len(row) > cidCol {
 			record.Cid = row[cidCol]
@@ -238,8 +242,11 @@ func readDataSourceExcel(filePath string) (map[string][]DataSourceRecord, error)
 		if reqIdCol != -1 && len(row) > reqIdCol {
 			record.ReqId = row[reqIdCol]
 		}
+		if logTime != -1 && len(row) > logTime {
+			record.LogTime = row[logTime]
+		}
 
-		dataMap[record.AdId] = append(dataMap[record.AdId], record)
+		dataMap[record.CampaignId] = append(dataMap[record.CampaignId], record)
 	}
 
 	return dataMap, nil
@@ -372,20 +379,22 @@ func sendCallback(record DataSourceRecord) bool {
 	// 构建回调URL
 	baseURL := "https://ad.oceanengine.com/track/activate/"
 
+	callbackParam, err := base64.StdEncoding.DecodeString(record.CallbackParam)
 	// 创建HTTP请求
 	req, err := http.NewRequest(http.MethodGet, baseURL, nil)
 	if err != nil {
-		fmt.Printf("Failed to create request for %s: %v\n", record.CallbackParam, err)
+		fmt.Printf("Failed to create request for %s: %v\n", callbackParam, err)
 		return false
 	}
 
 	// 构建查询参数
 	q := req.URL.Query()
-	q.Add("callback", record.CallbackParam)
+	q.Add("callback", string(callbackParam))
 	q.Add("os", "0")
 	q.Add("oaid", record.Oaid)
-	q.Add("event_type", "21")
-	q.Add("conv_time", strconv.Itoa(int(time.Now().Unix())))
+	q.Add("event_type", "20")
+	//q.Add("conv_time", strconv.Itoa(int(time.Now().Unix())))
+	q.Add("conv_time", record.LogTime)
 
 	// 编码查询参数
 	req.URL.RawQuery = q.Encode()
@@ -399,17 +408,17 @@ func sendCallback(record DataSourceRecord) bool {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Callback request failed for %s: %v\n", record.CallbackParam, err)
+		fmt.Printf("Callback request failed for %s: %v\n", callbackParam, err)
 		return false
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态码
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		fmt.Printf("Callback request success for %s: status %d\n", record.CallbackParam, resp.StatusCode)
+		fmt.Printf("Callback request success for %s: status %d\n", callbackParam, resp.StatusCode)
 		return true
 	}
 
-	fmt.Printf("Callback request failed for %s: status %d\n", record.CallbackParam, resp.StatusCode)
+	fmt.Printf("Callback request failed for %s: status %d\n", callbackParam, resp.StatusCode)
 	return false
 }
