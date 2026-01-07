@@ -199,7 +199,7 @@ func readHonorDataSourceExcel(filePath string) (map[string][]DataHonorSourceReco
 	advertiserIdCol := findGdtColumnIndex(header, "advertiser_id")
 	campaignIdCol := findGdtColumnIndex(header, "campaign_id")
 	idfaSumCol := findGdtColumnIndex(header, "idfa_sum")
-	oaidSumCol := findGdtColumnIndex(header, "oaid_sum")
+	oaidCol := findGdtColumnIndex(header, "oaid")
 	imeiCol := findGdtColumnIndex(header, "imei")
 	imeiSumCol := findGdtColumnIndex(header, "imei_sum")
 	reqIdCol := findGdtColumnIndex(header, "req_id")
@@ -237,8 +237,8 @@ func readHonorDataSourceExcel(filePath string) (map[string][]DataHonorSourceReco
 		if idfaSumCol != -1 && len(row) > idfaSumCol {
 			record.IdfaSum = row[idfaSumCol]
 		}
-		if oaidSumCol != -1 && len(row) > oaidSumCol {
-			record.OaidSum = row[oaidSumCol]
+		if oaidCol != -1 && len(row) > oaidCol {
+			record.Oaid = row[oaidCol]
 		}
 		if imeiCol != -1 && len(row) > imeiCol {
 			record.Imei = row[imeiCol]
