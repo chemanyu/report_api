@@ -81,10 +81,7 @@ type DataHonorSourceRecord struct {
 	CallbackParam string
 	AdvertiserId  string
 	CampaignId    string
-	IdfaSum       string
 	Oaid          string
-	Imei          string
-	ImeiSum       string
 	ReqId         string
 }
 
@@ -198,10 +195,7 @@ func readHonorDataSourceExcel(filePath string) (map[string][]DataHonorSourceReco
 	callbackParamCol := findGdtColumnIndex(header, "callback_param")
 	advertiserIdCol := findGdtColumnIndex(header, "advertiser_id")
 	campaignIdCol := findGdtColumnIndex(header, "campaign_id")
-	idfaSumCol := findGdtColumnIndex(header, "idfa_sum")
 	oaidCol := findGdtColumnIndex(header, "oaid")
-	imeiCol := findGdtColumnIndex(header, "imei")
-	imeiSumCol := findGdtColumnIndex(header, "imei_sum")
 	reqIdCol := findGdtColumnIndex(header, "req_id")
 
 	if adIdCol == -1 || callbackParamCol == -1 {
@@ -234,17 +228,8 @@ func readHonorDataSourceExcel(filePath string) (map[string][]DataHonorSourceReco
 		if campaignIdCol != -1 && len(row) > campaignIdCol {
 			record.CampaignId = row[campaignIdCol]
 		}
-		if idfaSumCol != -1 && len(row) > idfaSumCol {
-			record.IdfaSum = row[idfaSumCol]
-		}
 		if oaidCol != -1 && len(row) > oaidCol {
 			record.Oaid = row[oaidCol]
-		}
-		if imeiCol != -1 && len(row) > imeiCol {
-			record.Imei = row[imeiCol]
-		}
-		if imeiSumCol != -1 && len(row) > imeiSumCol {
-			record.ImeiSum = row[imeiSumCol]
 		}
 		record.ReqId = row[reqIdCol]
 
@@ -384,7 +369,7 @@ func sendHonorCallback(record DataHonorSourceRecord) bool {
 	q := req.URL.Query()
 	q.Add("trackId", string(callbackParam))
 	q.Add("oaid", record.Oaid)
-	q.Add("conversionId", "20")
+	q.Add("conversionId", "10001")
 	q.Add("advertiserId", record.AdvertiserId)
 	q.Add("id_type", "0")
 	q.Add("conversionTime", strconv.Itoa(int(time.Now().UnixMilli())))
