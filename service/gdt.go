@@ -81,6 +81,7 @@ type DataGdtSourceRecord struct {
 	AdvertiserId  string
 	CampaignId    string
 	IdfaSum       string
+	Oaid          string
 	OaidSum       string
 	Imei          string
 	ImeiSum       string
@@ -198,6 +199,7 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 	advertiserIdCol := findGdtColumnIndex(header, "advertiser_id")
 	campaignIdCol := findGdtColumnIndex(header, "campaign_id")
 	idfaSumCol := findGdtColumnIndex(header, "idfa_sum")
+	oaidCol := findGdtColumnIndex(header, "oaid")
 	oaidSumCol := findGdtColumnIndex(header, "oaid_sum")
 	imeiCol := findGdtColumnIndex(header, "imei")
 	imeiSumCol := findGdtColumnIndex(header, "imei_sum")
@@ -236,6 +238,9 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 		if idfaSumCol != -1 && len(row) > idfaSumCol {
 			record.IdfaSum = row[idfaSumCol]
 		}
+		if oaidCol != -1 && len(row) > oaidCol {
+			record.Oaid = row[oaidCol]
+		}
 		if oaidSumCol != -1 && len(row) > oaidSumCol {
 			record.OaidSum = row[oaidSumCol]
 		}
@@ -247,7 +252,7 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 		}
 		record.ReqId = row[reqIdCol]
 
-		dataMap[record.CampaignId] = append(dataMap[record.CampaignId], record)
+		dataMap[record.AdvertiserId] = append(dataMap[record.AdvertiserId], record)
 	}
 
 	return dataMap, nil
@@ -330,7 +335,7 @@ func findGdtColumnIndex(header []string, possibleNames ...string) int {
 // executeCallback 执行回调操作
 func executeGdtCallback(record DataGdtSourceRecord) bool {
 	// 构建回调URL
-	baseURL := "https://ad-ocpx.zhltech.net/track/7edce4f597"
+	baseURL := "https://ad-ocpx.zhltech.net/track/62904f0109"
 
 	// 构建查询参数
 	params := url.Values{}
@@ -341,6 +346,7 @@ func executeGdtCallback(record DataGdtSourceRecord) bool {
 	params.Set("advertiser_id", record.AdvertiserId)
 	params.Set("campaign_id", record.CampaignId)
 	params.Set("ad_id", record.AdId)
+	params.Set("oaid", record.Oaid)
 	params.Set("oaid_sum", record.OaidSum) // 使用数据源表的oaid_sum
 	if record.IdfaSum != "" {
 		params.Set("os", "ios")
@@ -349,9 +355,9 @@ func executeGdtCallback(record DataGdtSourceRecord) bool {
 		params.Set("os", "android")
 		params.Set("muid", record.Imei)
 	}
-	params.Set("req_id", record.ReqId+"-20251127") // 使用数据源表的req_id
+	params.Set("req_id", record.ReqId+"-20260115") // 使用数据源表的req_id
 	params.Set("debug", "1")
-	params.Set("action", "launch")
+	params.Set("transformType", "49")
 
 	callbackURL := baseURL + "?" + params.Encode()
 
