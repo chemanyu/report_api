@@ -103,8 +103,8 @@ type JdQueryResult struct {
 // JD奖励订单API响应结构体
 type JdBonusOrderResponse struct {
 	JdUnionOpenOrderBonusQueryResponse struct {
-		Code        string `json:"code"`
-		QueryResult string `json:"queryResult"` // JSON字符串，需要二次解析
+		Code        string             `json:"code"`
+		QueryResult JdBonusQueryResult `json:"queryResult"` // 直接是对象，不是字符串
 	} `json:"jd_union_open_order_bonus_query_responce"` // 注意：京东API返回的是responce不是response
 }
 
@@ -703,18 +703,18 @@ func fetchJdBonusOrdersPage(optType int, startTime, endTime int64, pageNo, pageS
 	}
 
 	// 生成签名
-	sign := generateJdSign(params, JD_APP_SECRET)
+	//sign := generateJdSign(params, JD_APP_SECRET)
 
 	// 构建请求URL
-	apiUrl := "https://api.jd.com/routerjson"
+	apiUrl := "http://ad-ocpx.zhltech.net/wfc/jd/order/bonus/query"
 	values := url.Values{}
-	values.Set("app_key", JD_APP_KEY)
+	values.Set("app_key", "b2157684ef97af6719adacc85dbbf088")
 	values.Set("method", method)
 	values.Set("timestamp", timestamp)
 	values.Set("format", "json")
 	values.Set("v", version)
 	values.Set("sign_method", "md5")
-	values.Set("sign", sign)
+	//values.Set("sign", sign)
 	values.Set("360buy_param_json", paramJson)
 
 	if JD_ACCESS_TOKEN != "" {
@@ -728,7 +728,11 @@ func fetchJdBonusOrdersPage(optType int, startTime, endTime int64, pageNo, pageS
 	// 发送HTTP请求
 	var response JdBonusOrderResponse
 	err := jdHttpGet(requestUrl, func(content []byte) error {
-		//:", string(content))
+		//log.Println("content:", string(content))
+		if len(content) == 0 {
+			log.Println("content is empty")
+			return nil
+		}
 		return jsoniter.Unmarshal(content, &response)
 	})
 
@@ -742,11 +746,13 @@ func fetchJdBonusOrdersPage(optType int, startTime, endTime int64, pageNo, pageS
 		return nil, "", fmt.Errorf("JD Bonus API error: code=%s", response.JdUnionOpenOrderBonusQueryResponse.Code)
 	}
 
-	// 二次解析queryResult字符串
-	var queryResult JdBonusQueryResult
-	err = jsoniter.Unmarshal([]byte(response.JdUnionOpenOrderBonusQueryResponse.QueryResult), &queryResult)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to parse bonus queryResult: %w", err)
+	// 直接获取queryResult对象
+	queryResult := response.JdUnionOpenOrderBonusQueryResponse.QueryResult
+
+	if queryResult.Code != 200 {
+		return nil, "", fmt.Errorf("JD Bonus API query error: code=%d, message=%s",
+			queryResult.Code,
+			queryResult.Message)
 	}
 
 	if queryResult.Code != 200 {

@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -378,8 +379,9 @@ func executeCallback(record DataSourceRecord) bool {
 func sendCallback(record DataSourceRecord) bool {
 	// 构建回调URL
 	baseURL := "https://ad.oceanengine.com/track/activate/"
-
+	log.Println(record.CallbackParam)
 	callbackParam, err := base64.StdEncoding.DecodeString(record.CallbackParam)
+	log.Println(callbackParam)
 	// 创建HTTP请求
 	req, err := http.NewRequest(http.MethodGet, baseURL, nil)
 	if err != nil {
@@ -393,8 +395,8 @@ func sendCallback(record DataSourceRecord) bool {
 	q.Add("os", "0")
 	q.Add("oaid", record.Oaid)
 	q.Add("event_type", "20")
-	//q.Add("conv_time", strconv.Itoa(int(time.Now().Unix())))
-	q.Add("conv_time", record.LogTime)
+	q.Add("conv_time", strconv.Itoa(int(time.Now().Unix())))
+	//q.Add("conv_time", record.LogTime)
 
 	// 编码查询参数
 	req.URL.RawQuery = q.Encode()

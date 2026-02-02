@@ -335,7 +335,7 @@ func findGdtColumnIndex(header []string, possibleNames ...string) int {
 // executeCallback 执行回调操作
 func executeGdtCallback(record DataGdtSourceRecord) bool {
 	// 构建回调URL
-	baseURL := "https://ad-ocpx.zhltech.net/track/62904f0109"
+	baseURL := "https://ad-ocpx.zhltech.net/track/33af9ddd03"
 
 	// 构建查询参数
 	params := url.Values{}
@@ -355,9 +355,9 @@ func executeGdtCallback(record DataGdtSourceRecord) bool {
 		params.Set("os", "android")
 		params.Set("muid", record.Imei)
 	}
-	params.Set("req_id", record.ReqId+"-20260115") // 使用数据源表的req_id
+	params.Set("req_id", record.ReqId+"-20260123") // 使用数据源表的req_id
 	params.Set("debug", "1")
-	params.Set("transformType", "49")
+	params.Set("transformType", "37")
 
 	callbackURL := baseURL + "?" + params.Encode()
 
