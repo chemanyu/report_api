@@ -13,7 +13,7 @@ import (
 )
 
 // UploadExcelFiles 处理两个Excel文件上传
-func UploadGdtExcelFiles(ctx *gin.Context) {
+func UploadKsExcelFiles(ctx *gin.Context) {
 	// 获取上传的两个文件
 	form, err := ctx.MultipartForm()
 	if err != nil {
@@ -59,7 +59,7 @@ func UploadGdtExcelFiles(ctx *gin.Context) {
 	}
 
 	// 处理Excel文件并执行回调
-	result, err := processGdtExcelAndCallback(dataSourcePath, clickDataPath)
+	result, err := processKsExcelAndCallback(dataSourcePath, clickDataPath)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": fmt.Sprintf("Failed to process Excel files: %v", err),
@@ -75,35 +75,31 @@ func UploadGdtExcelFiles(ctx *gin.Context) {
 }
 
 // 数据源记录结构
-type DataGdtSourceRecord struct {
+type DataKsSourceRecord struct {
 	AdId          string
 	CallbackParam string
 	AdvertiserId  string
 	CampaignId    string
-	IdfaSum       string
-	Oaid          string
 	OaidSum       string
-	Imei          string
-	ImeiSum       string
 	ReqId         string
 }
 
 // 打点数据结构
-type ClickGdtDataRecord struct {
+type ClickKsDataRecord struct {
 	AdId       string
 	ClickCount int
 }
 
-// processGdtExcelAndCallback 处理Excel文件并执行回调
-func processGdtExcelAndCallback(dataSourcePath, clickDataPath string) (map[string]interface{}, error) {
+// processKsExcelAndCallback 处理Excel文件并执行回调
+func processKsExcelAndCallback(dataSourcePath, clickDataPath string) (map[string]interface{}, error) {
 	// 1. 读取数据源表（图一）
-	dataSourceMap, err := readGdtDataSourceExcel(dataSourcePath)
+	dataSourceMap, err := readKsDataSourceExcel(dataSourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data source: %w", err)
 	}
 
 	// 2. 读取打点表（图二）
-	clickDataList, err := readGdtClickDataExcel(clickDataPath)
+	clickDataList, err := readKsClickDataExcel(clickDataPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read click data: %w", err)
 	}
@@ -140,7 +136,7 @@ func processGdtExcelAndCallback(dataSourcePath, clickDataPath string) (map[strin
 		for i := 0; i < count; i++ {
 			record := records[i]
 			// 执行回调
-			success := executeGdtCallback(record)
+			success := executeKsCallback(record)
 			totalCallbacks++
 			if success {
 				successCallbacks++
@@ -171,7 +167,7 @@ func processGdtExcelAndCallback(dataSourcePath, clickDataPath string) (map[strin
 }
 
 // readDataSourceExcel 读取数据源表（图一）
-func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, error) {
+func readKsDataSourceExcel(filePath string) (map[string][]DataKsSourceRecord, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
 		return nil, err
@@ -194,23 +190,19 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 
 	// 解析表头，找到各列的索引
 	header := rows[0]
-	adIdCol := findGdtColumnIndex(header, "ad_id")
-	callbackParamCol := findGdtColumnIndex(header, "callback_param")
-	advertiserIdCol := findGdtColumnIndex(header, "advertiser_id")
-	campaignIdCol := findGdtColumnIndex(header, "campaign_id")
-	idfaSumCol := findGdtColumnIndex(header, "idfa_sum")
-	oaidCol := findGdtColumnIndex(header, "oaid")
-	oaidSumCol := findGdtColumnIndex(header, "oaid_sum")
-	imeiCol := findGdtColumnIndex(header, "imei")
-	imeiSumCol := findGdtColumnIndex(header, "imei_sum")
-	reqIdCol := findGdtColumnIndex(header, "req_id")
+	adIdCol := findKsColumnIndex(header, "ad_id")
+	callbackParamCol := findKsColumnIndex(header, "callback_param")
+	advertiserIdCol := findKsColumnIndex(header, "advertiser_id")
+	campaignIdCol := findKsColumnIndex(header, "campaign_id")
+	oaidSumCol := findKsColumnIndex(header, "oaid_sum")
+	//reqIdCol := findKsColumnIndex(header, "req_id")
 
 	if adIdCol == -1 || callbackParamCol == -1 {
 		return nil, fmt.Errorf("required columns (ad_id, callback_param) not found in data source")
 	}
 
 	// 按 ad_id 分组存储数据
-	dataMap := make(map[string][]DataGdtSourceRecord)
+	dataMap := make(map[string][]DataKsSourceRecord)
 
 	for i := 1; i < len(rows); i++ {
 		row := rows[i]
@@ -224,7 +216,7 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 		adId = strings.ReplaceAll(adId, "\n", "")
 		adId = strings.ReplaceAll(adId, "\r", "")
 
-		record := DataGdtSourceRecord{
+		record := DataKsSourceRecord{
 			AdId:          adId,
 			CallbackParam: row[callbackParamCol],
 		}
@@ -235,31 +227,19 @@ func readGdtDataSourceExcel(filePath string) (map[string][]DataGdtSourceRecord, 
 		if campaignIdCol != -1 && len(row) > campaignIdCol {
 			record.CampaignId = row[campaignIdCol]
 		}
-		if idfaSumCol != -1 && len(row) > idfaSumCol {
-			record.IdfaSum = row[idfaSumCol]
-		}
-		if oaidCol != -1 && len(row) > oaidCol {
-			record.Oaid = row[oaidCol]
-		}
 		if oaidSumCol != -1 && len(row) > oaidSumCol {
 			record.OaidSum = row[oaidSumCol]
 		}
-		if imeiCol != -1 && len(row) > imeiCol {
-			record.Imei = row[imeiCol]
-		}
-		if imeiSumCol != -1 && len(row) > imeiSumCol {
-			record.ImeiSum = row[imeiSumCol]
-		}
-		record.ReqId = row[reqIdCol]
+		//	record.ReqId = row[reqIdCol]
 
-		dataMap[record.CampaignId] = append(dataMap[record.CampaignId], record)
+		dataMap[record.AdId] = append(dataMap[record.AdId], record)
 	}
 
 	return dataMap, nil
 }
 
 // readClickDataExcel 读取打点表（图二）
-func readGdtClickDataExcel(filePath string) ([]ClickGdtDataRecord, error) {
+func readKsClickDataExcel(filePath string) ([]ClickKsDataRecord, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
 		return nil, err
@@ -289,7 +269,7 @@ func readGdtClickDataExcel(filePath string) ([]ClickGdtDataRecord, error) {
 		return nil, fmt.Errorf("required columns (广告id, 点击数) not found in click data")
 	}
 
-	var clickDataList []ClickGdtDataRecord
+	var clickDataList []ClickKsDataRecord
 
 	for i := 1; i < len(rows); i++ {
 		row := rows[i]
@@ -309,7 +289,7 @@ func readGdtClickDataExcel(filePath string) ([]ClickGdtDataRecord, error) {
 		adId = strings.ReplaceAll(adId, "\n", "")
 		adId = strings.ReplaceAll(adId, "\r", "")
 
-		record := ClickGdtDataRecord{
+		record := ClickKsDataRecord{
 			AdId:       adId,
 			ClickCount: clickCount,
 		}
@@ -321,7 +301,7 @@ func readGdtClickDataExcel(filePath string) ([]ClickGdtDataRecord, error) {
 }
 
 // findColumnIndex 查找列索引（支持多个可能的列名）
-func findGdtColumnIndex(header []string, possibleNames ...string) int {
+func findKsColumnIndex(header []string, possibleNames ...string) int {
 	for i, col := range header {
 		for _, name := range possibleNames {
 			if strings.TrimSpace(col) == name {
@@ -333,30 +313,22 @@ func findGdtColumnIndex(header []string, possibleNames ...string) int {
 }
 
 // executeCallback 执行回调操作
-func executeGdtCallback(record DataGdtSourceRecord) bool {
+func executeKsCallback(record DataKsSourceRecord) bool {
 	// 构建回调URL
-	//baseURL := "https://ad-ocpx.zhltech.net/track/08eab3d209"
-	baseURL := "https://ad-ocpx.zhltech.net/track/08eab3d209"
+	baseURL := "https://ad-ocpx.zhltech.net/track/af498d3248"
 
 	// 构建查询参数
 	params := url.Values{}
 	params.Set("ms_task", "meishutest")
 	params.Set("ms_place", "1")
-	params.Set("ms_channel", "gdt")
+	params.Set("ms_channel", "ks")
 	params.Set("callback_param", record.CallbackParam) // 使用传入的callback_param
 	params.Set("advertiser_id", record.AdvertiserId)
 	params.Set("campaign_id", record.CampaignId)
 	params.Set("ad_id", record.AdId)
-	params.Set("oaid", record.Oaid)
-	params.Set("oaid_sum", record.OaidSum) // 使用数据源表的oaid_sum
-	if record.IdfaSum != "" {
-		params.Set("os", "ios")
-		params.Set("muid", record.IdfaSum) // 使用数据源表的idfa_sum
-	} else {
-		params.Set("os", "android")
-		params.Set("muid", record.Imei)
-	}
-	params.Set("req_id", record.ReqId+"-20260202") // 使用数据源表的req_id
+	params.Set("oaid_sum", record.OaidSum)
+	params.Set("os", "ios")
+	params.Set("req_id", record.ReqId+"-20260210") // 使用数据源表的req_id
 	params.Set("debug", "1")
 	params.Set("transformType", "36")
 

@@ -79,6 +79,7 @@ func MainControl() {
 		handlers.GetTaobaoReportApiHandler,
 		handlers.HonorCallbackApiHandler,
 		handlers.UcCallbackApiHandler,
+		handlers.KsCallbackApiHandler,
 	}
 
 	// 注册路由
